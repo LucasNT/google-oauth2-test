@@ -8,6 +8,7 @@ import (
 
 	createoauthconfig "github.com/LucasNT/google-oauth2-test/internal/createOauthConfig"
 	requestuserinfo "github.com/LucasNT/google-oauth2-test/internal/requestUserInfo"
+	saverefreshtoken "github.com/LucasNT/google-oauth2-test/internal/saveRefreshToken"
 	"github.com/LucasNT/google-oauth2-test/internal/webServer"
 	"github.com/skratchdot/open-golang/open"
 )
@@ -43,7 +44,12 @@ func main() {
 
 	token := <-ch
 
-	out, err := requestuserinfo.RequestUserInfo(token)
+	err = saverefreshtoken.Save(token)
+	if err != nil {
+		panic(err)
+	}
+
+	out, err := requestuserinfo.RequestUserInfo(token.AccessToken)
 
 	fmt.Println(string(out))
 }

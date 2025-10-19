@@ -14,14 +14,14 @@ import (
 type CustomServerHandler struct {
 	config    *oauth2.Config
 	handler   http.Handler
-	stringRet chan<- string
+	stringRet chan<- *oauth2.Token
 }
 
-func New(config *oauth2.Config) (*CustomServerHandler, <-chan string, error) {
+func New(config *oauth2.Config) (*CustomServerHandler, <-chan *oauth2.Token, error) {
 	ret := new(CustomServerHandler)
 	ret.config = config
 
-	ch := make(chan string)
+	ch := make(chan *oauth2.Token)
 	ret.stringRet = ch
 
 	templ, err := template.New("index.html").Funcs(
@@ -60,13 +60,7 @@ func New(config *oauth2.Config) (*CustomServerHandler, <-chan string, error) {
 			w.Write([]byte(err.Error()))
 			return
 		}
-
-		fmt.Println("Access Token", token.AccessToken)
-		fmt.Println("Expires In", token.ExpiresIn)
-		fmt.Println("Token Type", token.TokenType)
-		fmt.Println("Refresh Token", len(token.RefreshToken))
-		fmt.Println("Expiry", token.Expiry)
-		ret.stringRet <- token.AccessToken
+		ret.stringRet <- token
 		http.Redirect(w, r, "https://google.com.br", http.StatusSeeOther)
 	})
 
@@ -82,13 +76,15 @@ func (c *CustomServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 func (c *CustomServerHandler) GenerateGoogleAuthURL() (string, error) {
 	authUrl, err := url.Parse("https://accounts.google.com/o/oauth2/v2/auth")
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse url, %w")
+		return "", fmt.Errorf("Failed to parse url, %w", err)
 	}
 	parameters := url.Values{}
 	parameters.Add("scope", strings.Join(c.config.Scopes, " "))
 	parameters.Add("client_id", c.config.ClientID)
 	parameters.Add("redirect_uri", c.config.RedirectURL)
 	parameters.Add("response_type", "code")
+	parameters.Add("access_type", "offline")
+	parameters.Add("prompt", "consent")
 	authUrl.RawQuery = parameters.Encode()
 
 	return authUrl.String(), err

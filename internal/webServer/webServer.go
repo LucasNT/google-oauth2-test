@@ -12,13 +12,17 @@ import (
 )
 
 type CustomServerHandler struct {
-	config  *oauth2.Config
-	handler http.Handler
+	config    *oauth2.Config
+	handler   http.Handler
+	stringRet chan<- string
 }
 
-func New(config *oauth2.Config) (*CustomServerHandler, error) {
+func New(config *oauth2.Config) (*CustomServerHandler, <-chan string, error) {
 	ret := new(CustomServerHandler)
 	ret.config = config
+
+	ch := make(chan string)
+	ret.stringRet = ch
 
 	templ, err := template.New("index.html").Funcs(
 		template.FuncMap{
@@ -27,7 +31,7 @@ func New(config *oauth2.Config) (*CustomServerHandler, error) {
 	).ParseFiles("./index.html")
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create template %w", err)
+		return nil, nil, fmt.Errorf("Failed to create template %w", err)
 	}
 
 	mut := http.NewServeMux()
@@ -62,12 +66,13 @@ func New(config *oauth2.Config) (*CustomServerHandler, error) {
 		fmt.Println("Token Type", token.TokenType)
 		fmt.Println("Refresh Token", len(token.RefreshToken))
 		fmt.Println("Expiry", token.Expiry)
+		ret.stringRet <- token.AccessToken
 		http.Redirect(w, r, "https://google.com.br", http.StatusSeeOther)
 	})
 
 	ret.handler = mut
 
-	return ret, nil
+	return ret, ch, nil
 }
 
 func (c *CustomServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

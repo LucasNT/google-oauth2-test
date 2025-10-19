@@ -1,16 +1,11 @@
-package main
+package createoauthconfig
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
-	"time"
 
-	"github.com/LucasNT/google-oauth2-test/webServer"
-	"github.com/skratchdot/open-golang/open"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -37,15 +32,10 @@ func parserJson(path string) (map[string]googleCloudOauthSecret, error) {
 	return a, nil
 }
 
-func main() {
-
-	jsonFilePtr := flag.String("json", "./client_secret.json", "path of the json file that yout can download form gcloud")
-
-	flag.Parse()
-
-	authConfig, err := parserJson(*jsonFilePtr)
+func New(path string) (*oauth2.Config, error) {
+	authConfig, err := parserJson(path)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("Failed to parser %s file %w", path, err)
 	}
 
 	var oauth2Config *oauth2.Config = &oauth2.Config{
@@ -53,29 +43,8 @@ func main() {
 		ClientSecret: authConfig["web"].ClientSecret,
 		Endpoint:     google.Endpoint,
 		RedirectURL:  "http://localhost:3000/callback",
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile"},
 	}
 
-	webServer, err := webServer.New(oauth2Config)
-	if err != nil {
-		panic(err)
-	}
-
-	server := http.Server{
-		Addr:    ":3000",
-		Handler: webServer,
-	}
-
-	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			panic(err)
-		}
-	}()
-
-	time.Sleep(time.Second)
-	fmt.Println("Making oauth request")
-
-	open.Run("http://localhost:3000/")
-
-	time.Sleep(400 * time.Second)
+	return oauth2Config, nil
 }
